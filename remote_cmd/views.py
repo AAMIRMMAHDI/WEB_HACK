@@ -95,7 +95,7 @@ import re
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-SERVER_URL = "http://192.168.1.100:8000/api/"
+SERVER_URL = "https://amirmmahdi.pythonanywhere.com/api/"
 CLIENT_ID = getpass.getuser()
 TOKEN = str(uuid.uuid4())
 CURRENT_DIR = os.getcwd()
