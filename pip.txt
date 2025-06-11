@@ -1,0 +1,8 @@
+django>=4.2
+djangorestframework>=3.12
+requests>=2.28
+opencv-python>=4.5
+numpy>=1.21
+psutil>=5.9
+pyautogui>=0.9
+pyinstaller>=5.0
