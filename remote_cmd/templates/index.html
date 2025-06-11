@@ -2,109 +2,145 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>کنترل از راه دور CMD</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <title>مدیریت کلاینت‌ها</title>
     <style>
         body {
-            font-family: 'JetBrains Mono', monospace;
-            background: #1a1a1a;
-            color: #00ff00;
-        }
-        .container {
-            max-width: 90vw;
-            margin: 0 auto;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
             padding: 20px;
         }
-        .btn {
-            background: #00ff00;
-            color: #000;
-            padding: 10px 20px;
-            border-radius: 5px;
-            transition: all 0.3s;
-            margin-right: 10px;
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
-        .btn:hover {
-            background: #00cc00;
-            transform: scale(1.05);
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .stats div {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            flex: 1;
+            text-align: center;
+            margin: 0 10px;
         }
         table {
-            background: #222;
-            border: 2px solid #00ff00;
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
         }
         th, td {
-            border: 1px solid #333;
+            padding: 10px;
+            text-align: right;
+            border: 1px solid #ddd;
         }
         th {
-            background: #333;
-            color: #00ff00;
+            background-color: #007bff;
+            color: #fff;
         }
-        tr:hover {
-            background: #2a2a2a;
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        a, button {
+            color: #007bff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        a:hover, button:hover {
+            text-decoration: underline;
         }
         .message {
-            animation: fadeIn 0.5s;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            text-align: center;
         }
-        .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-left: 5px;
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
         }
-        .status-online {
-            background-color: #00ff00;
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
         }
-        .status-offline {
-            background-color: #ff0000;
+        .actions {
+            display: flex;
+            gap: 10px;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: #fff;
+        }
+        .logout {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 8px 16px;
+            background-color: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
         }
     </style>
 </head>
 <body>
+    <a href="{% url 'logout' %}" class="logout">خروج</a>
     <div class="container">
-        <h1 class="text-3xl font-bold mb-6">کنترل از راه دور CMD</h1>
-        <div class="mb-4">
-            <a href="{% url 'generate_exe' %}" class="btn inline-block">ساخت فایل client.exe</a>
-            <a href="{% url 'download_exe' %}" class="btn inline-block">دانلود فایل client.exe</a>
-        </div>
+        <h1>مدیریت کلاینت‌ها</h1>
         {% if message %}
-            <p class="text-red-500 mb-4 message">{{ message }}</p>
+            <div class="message {{ message|lower|slice:':5' }}">
+                {{ message }}
+            </div>
         {% endif %}
-        <h2 class="text-2xl font-semibold mb-4">کلاینت‌ها</h2>
-        {% if clients %}
-            <table class="w-full rounded-lg overflow-hidden">
-                <thead>
+        <div class="stats">
+            <div>تعداد کلاینت‌های آنلاین: {{ online_count }}</div>
+            <div>تعداد کلاینت‌های آفلاین: {{ offline_count }}</div>
+        </div>
+        <div class="actions">
+            <button onclick="window.location.href='/generate-exe/'">ساخت فایل اجرایی</button>
+            <button onclick="window.location.href='/download-exe/'">دانلود فایل اجرایی</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>شناسه کلاینت</th>
+                    <th>آخرین بازدید</th>
+                    <th>آخرین دستور</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
                     <tr>
-                        <th class="px-4 py-2 text-right">شناسه کلاینت</th>
-                        <th class="px-4 py-2 text-right">نام اکانت</th>
-                        <th class="px-4 py-2 text-right">وضعیت</th>
-                        <th class="px-4 py-2 text-right">عملیات</th>
+                        <td>{{ client.client_id }}</td>
+                        <td>{{ client.last_seen|date:"Y/m/d H:i:s" }}</td>
+                        <td>{{ client.last_command|default:"-" }}</td>
+                        <td>
+                            <a href="{% url 'cmd_page' client.client_id %}">ارسال دستور</a>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    {% for client in clients %}
-                        <tr>
-                            <td class="px-4 py-2 text-right">{{ client.client_id }}</td>
-                            <td class="px-4 py-2 text-right">{{ client.client_id }}</td>
-                            <td class="px-4 py-2 text-right">
-                                <span class="status-dot {% if client.is_online %}status-online{% else %}status-offline{% endif %}"></span>
-                                {% if client.is_online %}آنلاین{% else %}آفلاین{% endif %}
-                            </td>
-                            <td class="px-4 py-2 text-right">
-                                <a href="{% url 'cmd_page' client.client_id %}" class="text-blue-400 hover:text-blue-300">نمایش CMD</a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p class="text-gray-400">هیچ کلاینتی ثبت نشده است.</p>
-        {% endif %}
+                {% empty %}
+                    <tr>
+                        <td colspan="4">هیچ کلاینتی یافت نشد</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </body>
 </html>

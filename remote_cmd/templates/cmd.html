@@ -1,141 +1,301 @@
 <!DOCTYPE html>
-<html lang="fa" dir="ltr">
+<html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CMD کلاینت {{ client.client_id }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <title>CMD: {{ client.client_id }}</title>
     <style>
-        body { font-family: 'JetBrains Mono', monospace; background: #000; color: #00ff00; }
-        .container { max-width: 90vw; margin: 0 auto; padding: 20px; }
-        #terminal {
-            background: #000;
-            border: 2px solid #333;
-            padding: 15px;
-            height: 500px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-wrap: break-word;
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            padding: 10px;
+            overflow: hidden;
         }
-        #prompt { display: flex; align-items: center; margin-top: 10px; }
-        #command-input {
-            background: transparent;
-            color: #00ff00;
+        .terminal {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 5px;
+            width: 600px;
+            height: 400px;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            cursor: move;
+        }
+        .terminal-header {
+            background-color: #222;
+            padding: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .close-btn {
+            color: red;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .output {
+            white-space: pre-wrap;
+            margin: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            color: #0f0;
+        }
+        .input-container {
+            display: flex;
+            align-items: center;
+            margin: 10px;
+        }
+        .prompt {
+            color: #0f0;
+            margin-right: 5px;
+        }
+        input[type="text"] {
+            flex-grow: 1;
+            background-color: transparent;
+            color: #fff;
             border: none;
             outline: none;
-            flex-grow: 1;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
         }
-        .command-line { color: #00ff00; }
-        .output-line { color: white; }
-        .error-line { color: red; }
-        #terminal::-webkit-scrollbar { width: 5px; }
-        #terminal::-webkit-scrollbar-track { background: #222; }
-        #terminal::-webkit-scrollbar-thumb { background: #555; }
+        .new-terminal-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .stream-window {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 5px;
+            width: 400px;
+            height: 300px;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            cursor: move;
+            text-align: center;
+        }
+        .stream-window img {
+            max-width: 100%;
+            max-height: 80%;
+        }
+        .stream-window audio {
+            margin-top: 10px;
+        }
+        .mic-icon {
+            font-size: 50px;
+            color: #0f0;
+            margin-top: 50px;
+        }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        {% if error %}
-            <h1 class="text-2xl font-bold text-red-500">{{ error }}</h1>
-        {% else %}
-            <h1 class="text-xl font-bold mb-4">CMD کلاینت: {{ client.client_id }}</h1>
-            <div id="terminal">
-                <div id="history"></div>
-                <div id="prompt">
-                    <span>> </span>
-                    <input id="command-input" type="text" autofocus>
-                </div>
+    {% if client %}
+        <div class="terminal" id="terminal-1">
+            <div class="terminal-header">
+                <span>CMD: {{ client.client_id }}</span>
+                <span class="close-btn" onclick="closeWindow('terminal-1')">✖</span>
             </div>
-        {% endif %}
-        <a href="{% url 'index' %}" class="text-blue-500 hover:underline mt-4 inline-block">بازگشت به لیست کلاینت‌ها</a>
-    </div>
-    {% if not error %}
-    <script>
-        const clientId = "{{ client.client_id }}";
-        const csrfToken = "{{ csrf_token }}";
-        const historyDiv = document.getElementById('history');
-        const commandInput = document.getElementById('command-input');
-        let lastOutputHash = null;
+            <div class="output" id="output-1">
+                {% if client.last_output %}
+                    {{ client.last_output|linebreaks }}
+                {% else %}
+                    Welcome to CMD for {{ client.client_id }}...
+                {% endif %}
+            </div>
+            <div class="input-container">
+                <span class="prompt">></span>
+                <input type="text" id="command-1" autofocus onkeydown="if(event.key === 'Enter') sendCommand('terminal-1')">
+            </div>
+        </div>
+        <button class="new-terminal-btn" onclick="openNewTerminal()">ترمینال جدید</button>
 
-        function hashString(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        <script>
+            let terminalCount = 1;
+
+            function sendCommand(terminalId) {
+                const commandInput = document.getElementById(`command-${terminalId.split('-')[1]}`);
+                const command = commandInput.value.trim();
+                if (!command) return;
+
+                const outputDiv = document.getElementById(`output-${terminalId.split('-')[1]}`);
+                outputDiv.innerHTML += `\n> ${command}\n`;
+
+                fetch(`/api/command/{{ client.client_id }}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ command })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.output) {
+                        if (command.toLowerCase() === 'webcam' || command.toLowerCase() === 'weblive') {
+                            if (data.output && !data.output.startsWith('Error')) {
+                                openStreamWindow(command.toLowerCase(), terminalId);
+                                outputDiv.innerHTML += 'Stream started in new window...\n';
+                            } else {
+                                outputDiv.innerHTML += data.output + '\n';
+                            }
+                        } else if (command.toLowerCase() === 'webmicrophone') {
+                            if (data.output && !data.output.startsWith('Error')) {
+                                openStreamWindow('webmicrophone', terminalId);
+                                outputDiv.innerHTML += 'Audio stream started in new window...\n';
+                            } else {
+                                outputDiv.innerHTML += data.output + '\n';
+                            }
+                        } else {
+                            outputDiv.innerHTML += data.output + '\n';
+                        }
+                    } else {
+                        outputDiv.innerHTML += 'Waiting for client response...\n';
+                    }
+                    outputDiv.scrollTop = outputDiv.scrollHeight;
+                    commandInput.value = '';
+                })
+                .catch(error => {
+                    outputDiv.innerHTML += `Error: ${error.message}\n`;
+                    outputDiv.scrollTop = outputDiv.scrollHeight;
+                });
             }
-            return hash;
-        }
 
-        function addToHistory(text, className) {
-            const line = document.createElement('div');
-            line.className = className;
-            line.textContent = text;
-            historyDiv.appendChild(line);
-            terminal.scrollTop = terminal.scrollHeight;
-            console.log(`Added to history: ${className}: ${text.slice(0, 100)}`);
-        }
+            function openStreamWindow(type, terminalId) {
+                const windowId = `${type}-${terminalId.split('-')[1]}`;
+                if (document.getElementById(windowId)) return;
 
-        function sendCommand() {
-            const command = commandInput.value.trim();
-            if (!command) return;
-            addToHistory(`> ${command}`, 'command-line');
-            commandInput.value = '';
-            fetch(`/api/command/${clientId}/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify({ command })
-            })
-            .then(response => {
-                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-                return response.json();
-            })
-            .then(data => {
-                console.log('Command sent:', data);
-                commandInput.focus();
-            })
-            .catch(error => {
-                console.error('Error sending command:', error);
-                addToHistory(`خطا در ارسال دستور: ${error.message}`, 'error-line');
-            });
-        }
+                const streamWindow = document.createElement('div');
+                streamWindow.className = 'stream-window';
+                streamWindow.id = windowId;
+                streamWindow.style.left = `${100 + Math.random() * 200}px`;
+                streamWindow.style.top = `${100 + Math.random() * 200}px`;
+                streamWindow.innerHTML = `
+                    <div class="terminal-header">
+                        <span>${type.toUpperCase()}</span>
+                        <span class="close-btn" onclick="closeWindow('${windowId}')">✖</span>
+                    </div>
+                    ${type === 'webmicrophone' ? '<div class="mic-icon">🎤</div><audio id="audio-${windowId}" autoplay></audio>' : '<img id="image-${windowId}" src=""><div class="error-message" id="error-${windowId}"></div>'}
+                `;
+                document.body.appendChild(streamWindow);
+                makeDraggable(streamWindow);
+                makeResizable(streamWindow);
 
-        function updateOutput() {
-            fetch(`/api/poll/${clientId}/`)
-            .then(response => {
-                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-                return response.json();
-            })
-            .then(data => {
-                console.log('Poll response:', data);
-                const output = data.last_output || '';
-                const outputHash = hashString(output);
-                if (output && outputHash !== lastOutputHash) {
-                    addToHistory(output, 'output-line');
-                    lastOutputHash = outputHash;
-                    console.log('New output displayed:', output.slice(0, 100));
+                if (type === 'webcam' || type === 'weblive') {
+                    startPolling(windowId, `/api/stream/{{ client.client_id }}/${type}/`, 'image');
+                } else if (type === 'webmicrophone') {
+                    startPolling(windowId, `/api/stream/{{ client.client_id }}/webmicrophone/`, 'audio');
                 }
-            })
-            .catch(error => {
-                console.error('Error polling output:', error);
-                addToHistory(`خطا در دریافت خروجی: ${error.message}`, 'error-line');
-            });
-        }
+            }
 
-        commandInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendCommand();
-        });
+            function closeWindow(id) {
+                const element = document.getElementById(id);
+                if (element) element.remove();
+            }
 
-        commandInput.focus();
+            function openNewTerminal() {
+                terminalCount++;
+                const newTerminal = document.createElement('div');
+                newTerminal.className = 'terminal';
+                newTerminal.id = `terminal-${terminalCount}`;
+                newTerminal.style.left = `${50 + Math.random() * 200}px`;
+                newTerminal.style.top = `${50 + Math.random() * 200}px`;
+                newTerminal.innerHTML = `
+                    <div class="terminal-header">
+                        <span>CMD: {{ client.client_id }}</span>
+                        <span class="close-btn" onclick="closeWindow('terminal-${terminalCount}')">✖</span>
+                    </div>
+                    <div class="output" id="output-${terminalCount}">
+                        Welcome to CMD for {{ client.client_id }}...
+                    </div>
+                    <div class="input-container">
+                        <span class="prompt">></span>
+                        <input type="text" id="command-${terminalCount}" autofocus onkeydown="if(event.key === 'Enter') sendCommand('terminal-${terminalCount}')">
+                    </div>
+                `;
+                document.body.appendChild(newTerminal);
+                makeDraggable(newTerminal);
+                makeResizable(newTerminal);
+            }
 
-        setInterval(updateOutput, 1000);
-        updateOutput();
-        console.log('Terminal initialized for client:', clientId);
-    </script>
+            function startPolling(windowId, url, type) {
+                setInterval(() => {
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(data => {
+                            const errorDiv = document.getElementById(`error-${windowId}`);
+                            if (data.data && !data.data.startsWith('Error')) {
+                                if (type === 'image') {
+                                    const img = document.getElementById(`image-${windowId}`);
+                                    img.src = `data:image/jpeg;base64,${data.data}`;
+                                    if (errorDiv) errorDiv.innerHTML = '';
+                                } else if (type === 'audio') {
+                                    const audio = document.getElementById(`audio-${windowId}`);
+                                    audio.src = `data:audio/wav;base64,${data.data}`;
+                                    if (errorDiv) errorDiv.innerHTML = '';
+                                }
+                            } else {
+                                if (errorDiv) {
+                                    errorDiv.innerHTML = data.data || 'No data received from client';
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            const errorDiv = document.getElementById(`error-${windowId}`);
+                            if (errorDiv) errorDiv.innerHTML = `Error: ${error.message}`;
+                        });
+                }, 1000);
+            }
+
+            function makeDraggable(element) {
+                let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+                element.querySelector('.terminal-header').onmousedown = dragMouseDown;
+
+                function dragMouseDown(e) {
+                    e.preventDefault();
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    document.onmouseup = closeDragElement;
+                    document.onmousemove = elementDrag;
+                }
+
+                function elementDrag(e) {
+                    e.preventDefault();
+                    pos1 = pos3 - e.clientX;
+                    pos2 = pos4 - e.clientY;
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    element.style.top = (element.offsetTop - pos2) + "px";
+                    element.style.left = (element.offsetLeft - pos1) + "px";
+                }
+
+                function closeDragElement() {
+                    document.onmouseup = null;
+                    document.onmousemove = null;
+                }
+            }
+
+            function makeResizable(element) {
+                element.style.resize = 'both';
+                element.style.overflow = 'auto';
+                element.style.minWidth = '300px';
+                element.style.minHeight = '200px';
+            }
+        </script>
+    {% else %}
+        <p>کلاینت یافت نشد</p>
     {% endif %}
 </body>
 </html>
